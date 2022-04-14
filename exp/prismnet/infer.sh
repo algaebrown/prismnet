@@ -1,5 +1,6 @@
 #!/bin/bash
 work_path=$(dirname $0)
+echo $work_path
 name=$(basename $work_path)
 # echo `date +%Y%m%d%H%M%S`
 

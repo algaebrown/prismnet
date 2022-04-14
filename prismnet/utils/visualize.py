@@ -4,7 +4,9 @@ import matplotlib as mpl
 mpl.use("pdf")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from scipy.misc import imresize
+#from scipy.misc import imresize
+import cv2
+from PIL import Image
 
 package_directory = os.path.dirname(os.path.abspath(__file__))
 acgu_path = os.path.join(package_directory,'acgu.npz')
@@ -58,7 +60,10 @@ def seq_logo(pwm, height=30, nt_width=10, norm=0, alphabet='rna', colormap='stan
             if nt_height[j] <=0 :
                 continue
             # resized dimensions of image
-            nt_img = imresize(chars[index[j]], (nt_height[j], nt_width))
+            #nt_img = cv2.resize(chars[index[j]], (nt_height[j], nt_width))
+            imgarr = Image.fromarray(chars[index[j]]) # (238, 336)
+            nt_img = np.array(imgarr.resize((nt_width, nt_height[j]))) # (100, 200, 3)
+            #print(imgarr.size, nt_img.shape)
             # determine location of image
             height_range = range(remaining_height-nt_height[j], remaining_height)
             width_range = range(i*nt_width, i*nt_width+nt_width)
@@ -66,6 +71,8 @@ def seq_logo(pwm, height=30, nt_width=10, norm=0, alphabet='rna', colormap='stan
             if height_range:
                 for k in range(3):
                     for m in range(len(width_range)):
+                        #print(height_range+offset, width_range[m], k)
+                        # [0-200], 0,0] = nt_img[:,m,0] is only 100
                         logo[height_range+offset, width_range[m],k] = nt_img[:,m,k]
 
             remaining_height -= nt_height[j]
@@ -101,12 +108,18 @@ def plot_saliency(X, W, nt_width=100, norm_factor=3, str_null=None, outdir="resu
     # sequence saliency logo
     seq_sal = normalize_pwm(W[:4, plot_index], factor=norm_factor)
     img_seq_sal_logo = seq_logo(seq_sal, height=nt_width*5, nt_width=nt_width)
-    img_seq_sal = imresize(W[:4, plot_index], size=(trace_height, trace_width))
+    #img_seq_sal = cv2.resize(W[:4, plot_index], size=(trace_height, trace_width))
+    imgarr = Image.fromarray(W[:4, plot_index]) 
+    img_seq_sal = np.array(imgarr.resize((trace_width, trace_height))) 
+    
 
     if seq_str_mode:
         # structure saliency logo
         str_sal = W[4, plot_index].reshape(1,-1)
-        img_str_sal = imresize(str_sal, size=(trace_height, trace_width))
+        #img_str_sal = cv2.resize(str_sal, size=(trace_height, trace_width))
+        imgarr = Image.fromarray(str_sal) 
+        img_str_sal = np.array(imgarr.resize((trace_width, trace_height))) 
+        
 
     # plot    
     fig = plt.figure(figsize=(10.1,2))
