@@ -5,6 +5,7 @@ from __future__ import print_function
 import os, sys, h5py
 import numpy as np
 from copy import deepcopy
+import pandas as pd
 
 
 
@@ -381,6 +382,23 @@ def load_testset_txt_only_seq(filepath, test, return_trans_id=False, seq_length=
         return test
 
 
+def read_csv(path):
+    # load sequences
+    df = pd.read_csv(path, sep='\t', header=None)
+    df = df.loc[df[0]!="Type"]
+
+    Type  = 0
+    loc   = 1
+    Seq   = 2
+    Str   = 3
+    Score = 4
+    label = 5
+
+    rnac_set  = df[Type].to_numpy()
+    sequences = df[Seq].to_numpy()
+    structs  = df[Str].to_numpy()
+    targets   = df[Score].to_numpy().astype(np.float32).reshape(-1,1)
+    return sequences, structs, targets
 
 def load_testset_txt(filepath, use_structure=True, seq_length=101):
     test = {}
@@ -394,18 +412,9 @@ def load_testset_txt(filepath, use_structure=True, seq_length=101):
         test['targets'] = f['targets']
 
         return test
-
+    print("Reading inference file from CSV:", filepath)
+    seqs, strs, targets = read_csv(filepath)
     in_ver = 5
-    seqs = []
-    strs = []
-    with open(filepath,"r") as f:
-        for line in f.readlines():
-            line=line.strip('\n').split('\t')
-            if len(line[2])!=seq_length:
-                continue
-            seqs.append(line[2])
-            if use_structure:
-                strs.append(line[3])
     in_seq = convert_one_hot(seqs, seq_length)
     
     if use_structure:
@@ -413,8 +422,16 @@ def load_testset_txt(filepath, use_structure=True, seq_length=101):
         for i in range(len(seqs)):
             icshape = strs[i].strip(',').split(',')
             ti = [float(t) for t in icshape]
-            ti = np.array(ti).reshape(1,-1)
-            structure[i] = np.concatenate([ti], axis=0)
+            ti = np.array(ti)
+
+            struct_len = ti.shape[0]
+            print('variable structure')
+
+            if struct_len >= seq_length:
+                structure[i, :, :] = ti[:seq_length]
+            else:
+
+                structure[i, :, :struct_len] = ti
         input = np.concatenate([in_seq, structure], axis=1)
     else:
         input = in_seq
