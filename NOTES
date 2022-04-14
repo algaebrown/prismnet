@@ -1,0 +1,29 @@
+# prepare dataset
+tools/gdata_bin.sh
+tsv # Type  = 0,loc   = 1, Seq(ATCG)   = 2,Str(SHAPE)   = 3,Score = 4,label = 5
+
+# train PrismNet
+exp/prismnet/train.sh TIA1_Hela clip_data TIA1_Hela clip_data
+
+# evaluation
+exp/prismnet/eval.sh TIA1_Hela clip_data 
+
+# inference
+head data/clip_data/TIA1_Hela.tsv > data/clip_data/test_inference.tsv
+# produce: exp/prismnet/out/models/TIA1_Hela_PrismNet_pu_best.pth
+
+exp/prismnet/infer.sh TIA1_Hela data/clip_data/test_inference.tsv
+
+# HAR
+#produces: exp/prismnet/out/har/TIA1_Hela_PrismNet_pu.har
+# format inr, p_np[i], highest_ind, highest_ind+L
+exp/prismnet/har.sh TIA1_Hela data/clip_data/test_inference.tsv
+
+# saliency
+exp/prismnet/saliency.sh TIA1_Hela data/clip_data/test_inference.tsv # takes quite a while
+# produces: exp/prismnet/out/saliency/TIA1_Hela_PrismNet_pu.sal
+exp/prismnet/saliencyimg.sh TIA1_Hela data/clip_data/test_inference.tsv
+
+# motif, need to install TOMTOM
+perl motif_construct/saliency_motif.pl infile.txt sal outfile
+Rscript motif_construct/motif_sig.R outfile_motif_summary.txt outfile_motif_sig.txt
