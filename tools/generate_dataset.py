@@ -34,8 +34,8 @@ only_pos   = False
 binary     = True
 
 name       = sys.argv[1]
-is_bin     = sys.argv[2]
-in_ver     = int(sys.argv[3])
+is_bin     = sys.argv[2] # 1
+in_ver     = int(sys.argv[3]) # 5
 data_path  = sys.argv[4]
 
 print(name)
@@ -47,19 +47,31 @@ sequences, structs, targets = read_csv(os.path.join(data_path, name+'.tsv'))
 
 # combine inpute data
 one_hot = datautils.convert_one_hot(sequences, max_length)
-structure = np.zeros((len(structs), in_ver-4, max_length))
+
+#structure = np.zeros((len(structs), in_ver-4, max_length)) # n_samples , 5-4=1, 101
+structure = -np.ones((len(structs), in_ver-4, max_length)) # n_samples , 5-4=1, 101 # init as -1
+
 for i in range(len(structs)):
     struct = structs[i].split(',')
     ti = [float(t) for t in struct]
-    ti = np.array(ti).reshape(1,-1)
-    structure[i] = np.concatenate([ti], axis=0)
+    ti = np.array(ti)
+    
+    struct_len = ti.shape[0]
+    
+    if struct_len >= max_length:
+        structure[i, :, :] = ti[:max_length]
+    else:
+        
+        structure[i, :, :struct_len] = ti
+    
+    #structure[i] = np.concatenate([ti], axis=0)
 
 data = np.concatenate([one_hot, structure], axis=1)
 
 # preprare targets
 if is_bin=="0":
-    targets = datautils.rescale(targets)
-elif is_bin=="1":
+    targets = datautils.rescale(targets) # rescale, do something to score < 0
+elif is_bin=="1": # else binarize
     targets[targets<0] = 0
     targets[targets>0] = 1
 
@@ -70,7 +82,7 @@ train, test = datautils.split_dataset(data, targets, valid_frac=0.2)
 target_data_type = np.int32 if is_bin=="1" else np.float32
 # save dataset
 save_path = os.path.join(data_path, outfile)
-print(name, data.shape, len(train[0]), len(test[0]), test[1].max(), test[1].min())
+print(f'{name=}, {data.shape=}, train={len(train[0])}, test={len(test[0])}, test ymax={test[1].max()}, test ymin={test[1].min()}')
 # print('saving dataset: ', save_path)
 with h5py.File(save_path, "w") as f:
     dset = f.create_dataset("X_train", data=train[0].astype(np.float32), compression="gzip")
