@@ -425,8 +425,7 @@ def load_testset_txt(filepath, use_structure=True, seq_length=101):
             ti = np.array(ti)
 
             struct_len = ti.shape[0]
-            print('variable structure')
-
+            
             if struct_len >= seq_length:
                 structure[i, :, :] = ti[:seq_length]
             else:

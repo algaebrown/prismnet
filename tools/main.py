@@ -143,6 +143,7 @@ def main():
     fix_seed(args.seed)
 
     device = torch.device("cuda" if use_cuda else "cpu")
+    print(f'====== Computing on {device} ======')
     kwargs = {'num_workers': args.workers, 'pin_memory': True} if use_cuda else {}
     
     #train_loader = torch.utils.data.DataLoader(SeqicSHAPE(data_path), \
@@ -231,7 +232,7 @@ def main():
         print("Test  set:", len(test_loader.dataset))
 
         met, y_all, p_all = validate(args, model, device, test_loader, criterion)
-        print("> eval {} auc: {:.4f} acc: {:.4f}".format(args.p_name, met.auc, met.acc))
+        print("> eval {} auc: {:.4f} acc: {:.4f} prc: {:.4f}".format(args.p_name, met.auc, met.acc, met.prc))
         save_evals(args.out_dir, identity, args.p_name, p_all, y_all, met)
 
     if args.infer and os.path.exists(args.infer_file):
