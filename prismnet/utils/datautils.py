@@ -400,45 +400,46 @@ def read_csv(path):
     targets   = df[Score].to_numpy().astype(np.float32).reshape(-1,1)
     return sequences, structs, targets
 
-def load_testset_txt(filepath, use_structure=True, seq_length=101):
+def load_testset_txt(filepath, use_structure=True, seq_length=101, binarize = True):
     test = {}
-
-    print("Reading inference file:", filepath)
-    if os.path.exists(filepath+"_test.npz"):
-        print("loading from npz.")        
-       
-        f = np.load(filepath+"_test.npz", allow_pickle=True)
-        test['inputs']  = f['inputs']
-        test['targets'] = f['targets']
-
-        return test
+    
     print("Reading inference file from CSV:", filepath)
     seqs, strs, targets = read_csv(filepath)
     in_ver = 5
     in_seq = convert_one_hot(seqs, seq_length)
     
+    
     if use_structure:
-        structure = np.zeros((len(seqs), in_ver-4, seq_length))
+        structure = -np.ones((len(seqs), in_ver-4, seq_length))
         for i in range(len(seqs)):
-            icshape = strs[i].strip(',').split(',')
-            ti = [float(t) for t in icshape]
-            ti = np.array(ti)
-
-            struct_len = ti.shape[0]
+            if type(strs[i]) == str:
+                icshape = strs[i].strip(',').split(',')
+                ti = [float(t) for t in icshape]
+                ti = np.array(ti)
             
-            if struct_len >= seq_length:
-                structure[i, :, :] = ti[:seq_length]
-            else:
 
-                structure[i, :, :struct_len] = ti
+                struct_len = ti.shape[0]
+
+                if struct_len >= seq_length:
+                    structure[i, :, :] = ti[:seq_length]
+                else:
+
+                    structure[i, :, :struct_len] = ti
+            
         input = np.concatenate([in_seq, structure], axis=1)
     else:
         input = in_seq
 
     inputs = np.expand_dims(input, axis=3).transpose([0, 3, 2, 1])
-    targets = np.ones((in_seq.shape[0],1))
+#     targets = np.ones((in_seq.shape[0],1))
 
-    targets[in_seq.shape[0]-1]=0
+#     targets[in_seq.shape[0]-1]=0
+    if binarize:
+        targets[targets<0]=0
+        targets[targets>0]=1
+        print('targets')
+    else:
+        targets = datautils.rescale(targets)
 
     test['inputs']  = inputs
     test['targets'] = targets

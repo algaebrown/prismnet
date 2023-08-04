@@ -99,7 +99,8 @@ def compute_saliency(args, model, device, test_loader, identity):
         
         for i in range(N):
             inr = batch_idx*args.batch_size + i
-            str_sal = datautils.mat2str(np.squeeze(guided_saliency[i]))
+            str_sal = datautils.mat2str(-np.log10(np.squeeze(guided_saliency[i].cpu())))
+            
             sal += "{}\t{:.6f}\t{}\n".format(inr, p_np[i], str_sal)
             
     f = open(saliency_path,"w")
@@ -166,7 +167,7 @@ def compute_saliency_img(args, model, device, test_loader, identity):
         sal = ""
         for i in tqdm(range(N)):
             inr = batch_idx*args.batch_size + i
-            str_sal = datautils.mat2str(np.squeeze(guided_saliency[i]))
+            str_sal = datautils.mat2str(-np.log10(np.squeeze(guided_saliency[i].cpu())))
             sal += "{}\t{:.6f}\t{}\n".format(inr, p_np[i], str_sal)
             img_path = imgs_path.format(inr, p_np[i])
             # import pdb; pdb.set_trace()
@@ -193,23 +194,31 @@ def compute_high_attention_region(args, model, device, test_loader, identity):
     # sgrad = SmoothGrad(model, device=device)
     sgrad = GuidedBackpropSmoothGrad(model, device=device)
     for batch_idx, (x0, y0) in enumerate(test_loader):
+        
+        if batch_idx % 50 == 0:
+            print(f'HAR at batch {batch_idx}')
         X, Y = x0.float().to(device), y0.to(device).float()
-        output = model(X)
-        prob = torch.sigmoid(output)
+        output = model(X) # prediction
+        prob = torch.sigmoid(output) # probability
         p_np = prob.to(device='cpu').detach().numpy().squeeze()
+        
         guided_saliency  = sgrad.get_batch_gradients(X, Y)
         
         attention_region = guided_saliency.sum(dim=3)[:,0,:].to(device='cpu').numpy() # (N, 101, 1)
         N,NS = attention_region.shape # (N, 101)
         for i in range(N):
-            inr = batch_idx*args.batch_size + i
-            iar = attention_region[i]
-            ar_score = np.array([ iar[j:j+L].sum() for j in range(NS-L+1)])
+            inr = batch_idx*args.batch_size + i # dataset index
+            iar = attention_region[i] # attention score
+            ar_score = np.array([ iar[j:j+L].sum() for j in range(NS-L+1)]) # windowing of L
             # import pdb; pdb.set_trace()
-            highest_ind = np.argmax(iar)
-            har += "{}\t{:.6f}\t{}\t{}\n".format(inr, p_np[i], highest_ind, highest_ind+L)
+            highest_ind = np.argmax(iar) # max window
+            har += "{}\t{:.6f}\t{}\t{}\t{}\n".format(inr, p_np[i], 
+                                                     highest_ind, 
+                                                     highest_ind+L, 
+                                                     ','.join(np.char.mod('%.1f', -np.log10(iar))))
 
     f = open(har_path,"w")
+    f.write('index\tregion_prob\tstart\tend\tfull_attention_score\n')
     f.write(har)
     f.close()
     print(har_path)
